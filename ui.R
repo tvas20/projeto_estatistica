@@ -47,6 +47,26 @@ body <- dashboardBody(
                         actionButton('go_comp', 'Submeter')
                     )
                 ),   
+                fluidRow(
+                  box(title = "Correlação entre as ações", width = 12, solidHeader = TRUE,
+                      DTOutput('info_comp')
+                  )
+                ),
+                fluidRow(
+                  box(title = "Gráfico da correlação entre as ações", width = 12, solidHeader = TRUE,
+                      plotOutput('ls')
+                  )
+                ),
+                fluidRow(
+                  box(title = "Gráfico de barra das médias das ações", width = 6, solidHeader = TRUE,
+                      plotOutput('brr')
+                  )
+                ),
+                fluidRow(
+                  box(title = "Scatterplot das ações", width = 6, solidHeader = TRUE,
+                      plotOutput('sct')
+                  )
+                ),
                 
         )
     )

@@ -14,20 +14,42 @@ server <- function(input, output) {
         return(df_stock)
     })
     
-    multiple_stocks <- eventReactive(input$go_comp, {
+    multiple_stocks_1 <- eventReactive(input$go_comp, {
       
       stock_name1 <- input$stock_comp1
-      stock_name2 <- input$stock_comp2
       twin <- input$true_date_comp
       
-      df_stock <- master_df %>% 
-        filter(Name == stock_name,
+      df_stock_1 <- master_df %>% 
+        filter(Name == stock_name1,
                Date > as.POSIXct(twin[1]) & Date < as.POSIXct(twin[2])) 
       
-      print(stock_name1)
-      print(stock_name2)
+      return(df_stock_1)
+    })
+    
+    multiple_stocks_2 <- eventReactive(input$go_comp, {
       
-      return(df_stock)
+      stock_name2 <- input$stock_comp2
+      twin <- input$true_date_comp
+
+      df_stock_2 <- master_df %>% 
+        filter(Name == stock_name2,
+               Date > as.POSIXct(twin[1]) & Date < as.POSIXct(twin[2])) 
+      
+      return(df_stock_2)
+    })
+    
+    multiple_stocks_comb <- eventReactive(input$go_comp, {
+      
+      stock_name2 <- input$stock_comp2
+      stock_name1 <- input$stock_comp1
+      
+      twin <- input$true_date_comp
+      
+      df_stock_comb <- master_df %>% 
+        filter(Name == stock_name2 | Name == stock_name1,
+               Date > as.POSIXct(twin[1]) & Date < as.POSIXct(twin[2])) 
+      
+      return(df_stock_comb)
     })
     
     output$timedate <- renderUI({
@@ -66,8 +88,8 @@ server <- function(input, output) {
         min_time_2 <- min(df_2$Date)
         max_time_2 <- max(df_2$Date)
       
-        min_time <- min(min_time_1,min_time_2)
-        max_time <- max(max_time_1,max_time_2)
+        min_time <- max(min_time_1,min_time_2)
+        max_time <- min(max_time_1,max_time_2)
         
         dateRangeInput("true_date_comp", "Período de análise",
                        end = max_time,
@@ -96,7 +118,6 @@ server <- function(input, output) {
         
         mod <- table(abc)
         Moda <- names(mod[mod == max(mod)])
-        #print(Moda)
 
         Máximo <- max(abc)
 
@@ -105,10 +126,51 @@ server <- function(input, output) {
         Ação <- input$stock
         
         df_tb <-  data.frame(Ação, Moda, Media, Mediana, Desvio.Padrão, Máximo, Mínimo)
-        
-        df_tb <- as.data.frame(t(df_tb))
 
         return(df_tb)
+    })
+    
+    Info_DataTable_comp <- eventReactive(input$go_comp, {
+      df_1 <- multiple_stocks_1()
+      df_2 <- multiple_stocks_2()
+      
+      tabela_1 <- df_1 %>% select(Close)
+      tabela_2 <- df_2 %>% select(Close)
+      
+      mean <- colMeans(tabela_1)
+      Media1 <- mean[[1]]
+      mean <- colMeans(tabela_2)
+      Media2 <- mean[[1]]
+      
+      med <- colMedians(as.matrix(tabela_1))
+      Mediana1 <- med[[1]]
+      med <- colMedians(as.matrix(tabela_2))
+      Mediana2 <- med[[1]]
+      
+      dp <- sd(as.matrix(tabela_1))
+      Desvio.Padrão1 <- dp[[1]]
+      dp <- sd(as.matrix(tabela_2))
+      Desvio.Padrão2 <- dp[[1]]
+      
+      Máximo1 <- max(tabela_1)
+      Máximo2 <- max(tabela_2)
+      
+      Mínimo1 <- min(tabela_1)
+      Mínimo2 <- min(tabela_2)
+      
+      Ação1 <- input$stock_comp1
+      Ação2 <- input$stock_comp2
+      
+      Ação <- c(Ação1, Ação2)
+      Media <- c(Media1, Media2)
+      Mediana <- c(Mediana1, Mediana2)
+      Desvio.Padrão <- c(Desvio.Padrão1, Desvio.Padrão2)
+      Máximo <- c(Máximo1, Máximo2)
+      Mínimo <- c(Mínimo1, Mínimo2)
+      
+      df_tb <-  data.frame(Ação, Media, Mediana, Desvio.Padrão, Máximo, Mínimo)
+      
+      return(df_tb)
     })
     
     output$info <- renderDT({
@@ -142,7 +204,7 @@ server <- function(input, output) {
       
       df$Date <- ymd(df$Date)
       a <- df %>% 
-        ggplot(aes(Date, Close, group=1)) +
+        ggplot(aes(Date, Close, group=1, color=Name)) +
         geom_path() +
         xlab('Data') +
         ylab('Preço da Ação em $') +
@@ -190,5 +252,79 @@ server <- function(input, output) {
       c
     })
     
+    output$ls <- renderPlot({
+      df_comb <- multiple_stocks_comb()
+      
+      aux <- df_comb$Close %>% na.omit() %>% as.numeric()
+      aux1 <- min(aux)
+      aux2 <- max(aux)
+      
+      df_comb$Date <- ymd(df_comb$Date)
+      d <- df_comb %>%
+        ggplot( aes(x=Date, y=Close, group=Name, color=Name)) +
+        geom_line() +
+        geom_path() +
+        xlab('Data') +
+        ylab('Preço da Ação em $') +
+        coord_cartesian(ylim = c(aux1, aux2)) +
+        theme_bw() +
+        scale_x_date(date_labels = "%Y-%m-%d")
+      
+      d
+    })
+    
+    output$brr <- renderPlot({
+      stock_name1 <- input$stock_comp1
+      stock_name2 <- input$stock_comp2
+      
+      df_1 <- multiple_stocks_1()
+      df_2 <- multiple_stocks_2()
+      
+      tabela_1 <- df_1 %>% select(Close)
+      tabela_2 <- df_2 %>% select(Close)
+      
+      mean <- colMeans(tabela_1)
+      Media1 <- mean[[1]]
+      mean <- colMeans(tabela_2)
+      Media2 <- mean[[1]]
+    
+      data <- data.frame(
+        name=c(stock_name1, stock_name2),
+        value=c(Media1, Media2)
+      )
+      
+      ggplot(data, aes(x=name, y=value, group=name, color=name)) + 
+        geom_bar(stat = "identity", col = c("#FF6666", "#0060FF"), 
+                 fill=c("#FF6666", "#0060FF")) +
+        xlab('Ações') +
+        ylab('Preço da Ação em $') 
+      
+    })
+    
+    output$sct <- renderPlot({
+      stock_name1 <- input$stock_comp1
+      stock_name2 <- input$stock_comp2
+      stock_name2 <- paste('Preço da Ação ', stock_name2, ' em $')
+      stock_name2 <- paste('Preço da Ação ', stock_name2, ' em $')
+      
+      df_1 <- multiple_stocks_1()
+      df_2 <- multiple_stocks_2()
+      
+      tabela_1 <- df_1 %>% select(Close)
+      tabela_2 <- df_2 %>% select(Close)
+      tabela_1 <- as.matrix(tabela_1)
+      tabela_2 <- as.matrix(tabela_2)
+      
+      data <- data.frame(
+        name=c(tabela_1),
+        value=c(tabela_2)
+      )
+      
+      ggplot(data, aes(x=name, y=value)) + 
+        geom_point() +
+        xlab(stock_name1) +
+        ylab(stock_name2)
+      
+    })
     
 }
